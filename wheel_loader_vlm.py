@@ -39,7 +39,7 @@ class WheelLoaderVLM:
             device=0 if torch.cuda.is_available() else -1
         )
     
-    def process_command(self, image_path: str, text_command: str) -> Dict:
+    def process_command(self, image_path: str, text_command: str, output_path: str) -> Dict:
         """Main processing pipeline"""
         print(f"🔄 Processing command: '{text_command}' for image: {image_path}")
         
@@ -58,7 +58,7 @@ class WheelLoaderVLM:
         action_commands = self.command_generator.text_to_commands(llm_response, pile_positions)
         print(f"   Action Commands: {action_commands}")
         
-        self.visualizer.visualize_actions(image_path, pile_positions, action_commands, "res.png")
+        self.visualizer.visualize_actions(image_path, pile_positions, action_commands, output_path)
 
         return {
             "image_path": image_path,
@@ -86,23 +86,22 @@ class WheelLoaderVLM:
             pile_info = "No material piles detected in the image.\n"
         
         context = f"""
-Construction Site Analysis:
-{pile_info}
-Operator Command: {command}
+                    Construction Site Analysis:
+                    {pile_info}
+                    Operator Command: {command}
 
-As a wheel loader operator assistant, provide specific instructions for the loader to complete this task.
-Focus on safe and efficient operation. Include position coordinates when possible.
+                    As a wheel loader operator assistant, provide specific instructions for the loader to complete this task.
+                    Focus on safe and efficient operation. Include position coordinates when possible.
 
-Response:"""
+                    Response:"""
         
         return context
     
     def _generate_response(self, context: str) -> str:
         """Generate response using LLM"""
         try:
-            # For demo purposes, use rule-based responses
-            # In production, you'd use the fine-tuned model
-            return self._rule_based_response(context)
+            # return self._rule_based_response(context)
+            return self._llm_based_response(context)
             
         except Exception as e:
             print(f"Error generating LLM response: {e}")
@@ -127,6 +126,74 @@ Response:"""
         
         return "Approach the nearest visible pile and begin digging operation."
     
+    def _llm_based_response(self, context: str) -> str:
+        """Generate response using SmolLM with specialized construction prompting"""
+        if not self.llm_pipeline:
+            return self._rule_based_response(context)
+            
+        try:
+            # Extract key information from context
+            pile_info = self._extract_pile_info(context)
+            command_info = self._extract_command_info(context)
+            
+            # Create specialized prompt for construction operations
+            prompt = f"""<|im_start|>system You are an expert wheel loader operator assistant. Analyze construction site data and provide precise, actionable instructions.
+
+                Key responsibilities:
+                - Prioritize operator safety and equipment protection
+                - Give specific coordinates and positioning instructions  
+                - Use professional construction terminology
+                - Provide step-by-step operational guidance
+                - Consider optimal digging angles and approach paths
+
+                Always respond with concrete actions, not questions or generic advice.<|im_end|>
+                <|im_start|>user
+                CONSTRUCTION SITE ANALYSIS:
+                {pile_info}
+
+                OPERATOR REQUEST: {command_info}
+
+                Provide specific operational instructions including:
+                1. Movement/positioning commands
+                2. Equipment positioning details  
+                3. Execution sequence
+                4. Safety considerations
+
+                Response:<|im_end|>
+                <|im_start|>assistant
+                """
+            
+            # Generate response with optimized parameters for construction domain
+            response = self.llm_pipeline(
+                prompt,
+                max_new_tokens=120,
+                temperature=0.3,  # Lower temperature for more focused responses
+                do_sample=True,
+                top_p=0.9,
+                repetition_penalty=1.1,
+                pad_token_id=self.llm_pipeline.tokenizer.eos_token_id,
+                return_full_text=False
+            )
+            
+            if response and len(response) > 0:
+                generated_text = response[0]['generated_text'].strip()
+                
+                # Clean up response
+                generated_text = self._clean_response(generated_text)
+                
+                # Validate response quality
+                if self._is_valid_construction_response(generated_text):
+                    return generated_text
+                else:
+                    print("⚠️ SmolLM response quality check failed, using rule-based fallback")
+                    return self._rule_based_response(context)
+            else:
+                return self._rule_based_response(context)
+                
+        except Exception as e:
+            print(f"SmolLM generation error: {e}")
+            return self._rule_based_response(context)
+
     def create_training_dataset(self, image_paths: List[str]) -> List[Dict]:
         """Create training dataset from images"""
         print("📚 Creating training dataset...")
@@ -171,7 +238,7 @@ Response:"""
             if command.lower() == 'quit':
                 break
             
-            result = self.process_command(image_path, command)
+            result = self.process_command(image_path, command, "res.png")
             
             print("\n📊 Results:")
             print(f"Detected Piles: {len(result['detected_piles'])}")

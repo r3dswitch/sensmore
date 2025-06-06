@@ -20,11 +20,11 @@ def main():
     # YouTube URLs from the prompt
     youtube_urls = [
         "https://www.youtube.com/watch?v=o5LxOWSQSIk",
-        "https://www.youtube.com/watch?v=hWp9vZ7eeaM", 
-        "https://www.youtube.com/watch?v=PnFhMHbcL44",
-        "https://www.youtube.com/watch?v=s7K23lRaLwA",
-        "https://www.youtube.com/watch?v=wc72kf9DWaY",
-        "https://www.youtube.com/watch?v=6Ce7CiQ9yk8"
+        # "https://www.youtube.com/watch?v=hWp9vZ7eeaM", 
+        # "https://www.youtube.com/watch?v=PnFhMHbcL44",
+        # "https://www.youtube.com/watch?v=s7K23lRaLwA",
+        # "https://www.youtube.com/watch?v=wc72kf9DWaY",
+        # "https://www.youtube.com/watch?v=6Ce7CiQ9yk8"
     ]
     
     vlm = WheelLoaderVLM()
@@ -71,7 +71,7 @@ def main():
             print(f"❌ Image not found: {args.image}")
             return
         
-        result = vlm.process_command(args.image, args.command)
+        result = vlm.process_command(args.image, args.command, "res.png")
         
         print("\n" + "="*50)
         print("🤖 WHEEL LOADER VLM DEMO RESULTS")

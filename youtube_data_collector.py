@@ -10,12 +10,12 @@ class YouTubeDataCollector:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
     
-    def download_and_extract_frames(self, youtube_urls, frames_per_video=50):
+    def download_and_extract_frames(self, youtube_urls, frames_per_video=150):
         """Download videos and extract frames"""
         print("🎬 Downloading and extracting frames from YouTube videos...")
         
         ydl_opts = {
-            'format': 'best[height<=720]',  # Keep it lightweight
+            'format': 'best[height<=720]',
             'outtmpl': 'temp_video.%(ext)s'
         }
         
